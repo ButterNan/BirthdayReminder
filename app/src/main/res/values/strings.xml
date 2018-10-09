@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">BirthdayReminder</string>
+    <string name="facebook_app_id">2151488851772033</string>
+    <string name="fb_login_protocol_scheme">fb2151488851772033</string>
+</resources>
