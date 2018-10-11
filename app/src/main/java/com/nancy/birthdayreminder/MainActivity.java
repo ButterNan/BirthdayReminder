@@ -37,13 +37,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener, LoaderManager.LoaderCallbacks<Cursor>{
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, LoaderManager.LoaderCallbacks<Cursor>, DataAccessor, DataReceiver{
 
     private LoginButton loginButton;
     private Button loadContactButton;
     private AccessToken mAccessToken;
     private CallbackManager callbackManager;
     private boolean firstimeLoad =false;
+
     public static final int CONTACT_LOADER = 1;
     private static final int PERMISSIONS_REQUEST_READ_CONTACTS = 100;
     private static String LOG_FOR_DEBUG = " Log for debug ";
@@ -104,19 +105,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     public void onClick(View view) {
-        switch (view.getId()){
-            case R.id.button2:
-                if(firstimeLoad==false) {
-                    checkForPermission();
-                    getLoaderManager().initLoader(CONTACT_LOADER, null, this);
-                    firstimeLoad = true;
-                }
-                else
-                {
-                    getLoaderManager().restartLoader(CONTACT_LOADER,null,this);
-                    //getLoaderManager().restartLoader(BIRTHDAY_LOADER, null, this);
-                }
-        }
+
+        DataAccessor accessor = (DataAccessor)this;
+        accessor.requestDetailItems(this);
+//        switch (view.getId()){
+//            case R.id.button2:
+//                if(firstimeLoad==false) {
+//                    checkForPermission();
+//
+//                    getLoaderManager().initLoader(CONTACT_LOADER, null, this);
+//                    firstimeLoad = true;
+//                }
+//                else
+//                {
+//                    getLoaderManager().restartLoader(CONTACT_LOADER,null,this);
+//                    //getLoaderManager().restartLoader(BIRTHDAY_LOADER, null, this);
+//                }
+//        }
 
     }
 
@@ -269,5 +274,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     public void onLoaderReset(Loader<Cursor> loader) {
 
+    }
+
+    @Override
+    public void receiveDetailItems(ContactDetails items) {
+        contactList.add(items);
+
+    }
+
+    @Override
+    public void requestDetailItems(DataReceiver receiver) {
+        DataDAO dao = new DataDAO(this);
+        dao.requestDetailItems(receiver);
     }
 }
