@@ -31,8 +31,10 @@ import com.facebook.login.widget.LoginButton;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener, LoaderManager.LoaderCallbacks<Cursor>{
@@ -45,12 +47,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public static final int CONTACT_LOADER = 1;
     private static final int PERMISSIONS_REQUEST_READ_CONTACTS = 100;
     private static String LOG_FOR_DEBUG = " Log for debug ";
+    List<ContactDetails> contactList=new ArrayList<>();
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        contactList.clear();
         boolean loggedOut = AccessToken.getCurrentAccessToken() == null;
         loginButton = findViewById(R.id.login_button);
         loadContactButton = findViewById(R.id.button2);
@@ -195,33 +200,67 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     ContentResolver cr = getContentResolver();
                     while(cursor.moveToNext())
                     {
-                        Map<String, String> contactInfoMap = new HashMap<String, String>();
-                        String contactId = cursor.getString(cursor.getColumnIndex(ContactsContract.Data._ID));
-                        String displayName =  cursor.getString(cursor.getColumnIndex(ContactsContract.Data.DISPLAY_NAME));
+                        ContactDetails contact= new ContactDetails();
+                        String displayName = cursor.getString(cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME));
+                        String contactId = cursor.getString(cursor.getColumnIndex(ContactsContract.Contacts._ID));
+                        contact.setContactName(displayName);
+
+                        //get birthday
                         String columns[] = {
                                 ContactsContract.CommonDataKinds.Event.START_DATE,
                                 ContactsContract.CommonDataKinds.Event.TYPE,
                                 ContactsContract.CommonDataKinds.Event.MIMETYPE,
                         };
-
                         String where = Event.TYPE + "=" + Event.TYPE_BIRTHDAY +
-                                " and " + Event.MIMETYPE + " = '" + Event.CONTENT_ITEM_TYPE + "' and "                  + ContactsContract.Data.CONTACT_ID + " = " + contactId;
-
-                        String[] selectionArgs = null;
+                                " and " + Event.MIMETYPE + " = '" + Event.CONTENT_ITEM_TYPE + "' and "+ ContactsContract.Data.CONTACT_ID + " = " + contactId;
                         String sortOrder = ContactsContract.Contacts.DISPLAY_NAME;
-                        Cursor birthdayCur = cr.query(ContactsContract.Data.CONTENT_URI, columns, where, selectionArgs, sortOrder);
+                        Cursor birthdayCur = cr.query(ContactsContract.Data.CONTENT_URI, columns, where, null, sortOrder);
                         if (birthdayCur.getCount() > 0) {
                             while (birthdayCur.moveToNext()) {
                                 String birthday = birthdayCur.getString(birthdayCur.getColumnIndex(ContactsContract.CommonDataKinds.Event.START_DATE));
-                                Log.d(" LOG_FOR_DEBUG ", birthday +" "+displayName);
+                                if(birthday!=null) {
+                                    contact.setContactBday(birthday);
+                                    Log.d(" LOG_FOR_DEBUG ", birthday + " " + displayName);
+                                }
                             }
+                            birthdayCur.close();
                         }
-                        birthdayCur.close();
+
+                        //get email ID
+                        Cursor emailCur = cr.query(
+                                ContactsContract.CommonDataKinds.Email.CONTENT_URI, null,
+                                ContactsContract.CommonDataKinds.Email.CONTACT_ID + " = " + contactId,
+                                null, null);
+                        if(emailCur!=null && emailCur.getCount()>0) {
+                            while (emailCur.moveToNext()) {
+                                //to get the contact names
+                                String email = emailCur.getString(emailCur.getColumnIndex(ContactsContract.CommonDataKinds.Email.DATA));
+                                Log.d("LOG_FOR_DEBUG", "Email "+ email);
+                                if (email != null) {
+                                    contact.setContactEmail(email);
+                                }
+                            }
+                            emailCur.close();
+                        }
+
+
+                        //get Phone number
+                            Cursor phoneCursor = cr.query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI, null,
+                                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = "+contactId, null, null);
+                            if (phoneCursor != null && phoneCursor.moveToFirst()) {
+                                String phone = phoneCursor.getString(phoneCursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER));
+                                contact.setContactPhone(phone);
+                                phoneCursor.close();
+                            }
+
+                        contactList.add(contact);
                     }
                 }
                 else {
-                    Log.e(" LOG_FOR_DEBUG ", "No contacts available");
+                    Log.d(" LOG_FOR_DEBUG ", "No contacts available");
                 }
+                Log.d(" LOG_FOR_DEBUG ", "ArrayList size "+contactList.size());
+                cursor.close();
                 break;
 
         }
