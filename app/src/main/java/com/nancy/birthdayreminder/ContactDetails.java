@@ -10,6 +10,15 @@ public class ContactDetails implements Parcelable{
     private String contactPhone;
     private String contactEmail;
     private String contactBday;
+    private boolean isChecked;
+
+    public boolean isChecked() {
+        return isChecked;
+    }
+
+    public void setChecked(boolean checked) {
+        isChecked = checked;
+    }
 
     protected ContactDetails(Parcel in) {
         contactName = in.readString();

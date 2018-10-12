@@ -15,7 +15,7 @@ public class DataLoaderCallbacks implements LoaderManager.LoaderCallbacks<Cursor
 
     private final Context mContext;
     private CursorHandler mCursorHandler;
-    public static final int CONTACT_LOADER = 1;
+
 
     public DataLoaderCallbacks(Context context) {
         this.mContext = context;
@@ -25,7 +25,7 @@ public class DataLoaderCallbacks implements LoaderManager.LoaderCallbacks<Cursor
     public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
 
         switch (i) {
-            case 1:
+            case Constants.CONTACT_LOADER:
                 String[] projection = new String[] { ContactsContract.Contacts._ID, ContactsContract.Contacts.DISPLAY_NAME };
                 CursorLoader contactCursor = new CursorLoader(mContext,ContactsContract.Contacts.CONTENT_URI, projection, null, null,ContactsContract.Contacts.DISPLAY_NAME + " COLLATE LOCALIZED ASC");
                 return contactCursor;
@@ -37,7 +37,7 @@ public class DataLoaderCallbacks implements LoaderManager.LoaderCallbacks<Cursor
     public void onLoadFinished(Loader<Cursor> loader, Cursor cursor) {
 
         switch (loader.getId()) {
-            case 1:
+            case Constants.CONTACT_LOADER:
                 if (cursor != null && cursor.getCount() > 0) {
                     ContentResolver cr = mContext.getContentResolver();
                     while(cursor.moveToNext())

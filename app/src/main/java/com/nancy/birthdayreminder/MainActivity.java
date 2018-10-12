@@ -13,6 +13,9 @@ import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Event;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.DividerItemDecoration;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -37,16 +40,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener, LoaderManager.LoaderCallbacks<Cursor>, DataAccessor, DataReceiver{
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, DataAccessor, DataReceiver{
 
     private LoginButton loginButton;
     private Button loadContactButton;
+    private RecyclerView contactListRecyclerView;
+    private CursorRecyclerViewAdapter adpater;
     private AccessToken mAccessToken;
     private CallbackManager callbackManager;
+    private OnItemListener listener;
     private boolean firstimeLoad =false;
-
-    public static final int CONTACT_LOADER = 1;
-    private static final int PERMISSIONS_REQUEST_READ_CONTACTS = 100;
     private static String LOG_FOR_DEBUG = " Log for debug ";
     List<ContactDetails> contactList=new ArrayList<>();
 
@@ -57,9 +60,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         setContentView(R.layout.activity_main);
 
         contactList.clear();
+
         boolean loggedOut = AccessToken.getCurrentAccessToken() == null;
         loginButton = findViewById(R.id.login_button);
         loadContactButton = findViewById(R.id.button2);
+        contactListRecyclerView = findViewById(R.id.contact_recycler);
+
+        LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+        contactListRecyclerView.setLayoutManager(layoutManager);
+
+        DividerItemDecoration decoration = new DividerItemDecoration(this, layoutManager.getOrientation());
+        contactListRecyclerView.addItemDecoration(decoration);
 
         if (!loggedOut) {
             Log.d(" LOG_FOR_DEBUG ", "Username is: " + Profile.getCurrentProfile().getName());
@@ -100,29 +111,58 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
         loadContactButton.setOnClickListener(this);
+
+        listener= new OnItemListener() {
+            @Override
+            public void onRowClicked(View view, int position) {
+
+            }
+
+            @Override
+            public void onCheckBoxChecked(View view, int position) {
+
+            }
+
+            @Override
+            public void onCheckBoxUnChecked(View view, int position) {
+
+            }
+        };
+
+        DataAccessor accessor = (DataAccessor)this;
+        accessor.requestDetailItems(this);
+
+        adpater = new CursorRecyclerViewAdapter(this, contactList, listener);
+        contactListRecyclerView.setAdapter(adpater);
+
     }
 
 
     @Override
-    public void onClick(View view) {
+    public void onResume() {
+        super.onResume();
 
+        if (adpater.getItemCount() > 0) {
+            // already read from the database
+        }
+        else if (this instanceof DataAccessor) {
+            // request detail items from SQLite to load the RecyclerView
+//            DataAccessor accessor = (DataAccessor) this;
+//            accessor.requestDetailItems(this);
+//            adpater = new CursorRecyclerViewAdapter(this, contactList, listener);
+//            contactListRecyclerView.setAdapter(adpater);
+        }
+    }
+
+    @Override
+    public void onClick(View view) {
         DataAccessor accessor = (DataAccessor)this;
         accessor.requestDetailItems(this);
-//        switch (view.getId()){
-//            case R.id.button2:
-//                if(firstimeLoad==false) {
-//                    checkForPermission();
-//
-//                    getLoaderManager().initLoader(CONTACT_LOADER, null, this);
-//                    firstimeLoad = true;
-//                }
-//                else
-//                {
-//                    getLoaderManager().restartLoader(CONTACT_LOADER,null,this);
-//                    //getLoaderManager().restartLoader(BIRTHDAY_LOADER, null, this);
-//                }
-//        }
+        adpater.notifyDataSetChanged();
 
+//        Intent intent = getIntent();
+//        finish();
+//        startActivity(intent);
     }
 
     @Override
@@ -135,7 +175,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.READ_CONTACTS}, PERMISSIONS_REQUEST_READ_CONTACTS);
+            requestPermissions(new String[]{Manifest.permission.READ_CONTACTS}, Constants.PERMISSIONS_REQUEST_READ_CONTACTS);
             //After this point you wait for callback in onRequestPermissionsResult(int, String[], int[]) overriden method
         } else {
             // Android version is lesser than 6.0 or the permission is already granted.
@@ -146,7 +186,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions,
                                            int[] grantResults) {
-        if (requestCode == PERMISSIONS_REQUEST_READ_CONTACTS) {
+        if (requestCode == Constants.PERMISSIONS_REQUEST_READ_CONTACTS) {
             if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Permission is granted
             } else {
@@ -183,108 +223,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
-
-    @Override
-    public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
-
-        switch (i) {
-            case CONTACT_LOADER:
-                String[] projection = new String[] { ContactsContract.Contacts._ID, ContactsContract.Contacts.DISPLAY_NAME };
-                CursorLoader contactCursor = new CursorLoader(this,ContactsContract.Contacts.CONTENT_URI, projection, null, null,
-                        ContactsContract.Contacts.DISPLAY_NAME + " COLLATE LOCALIZED ASC");
-                return contactCursor;
-        }
-        return null;
-    }
-
-    @Override
-    public void onLoadFinished(Loader<Cursor> loader, Cursor cursor) {
-        switch (loader.getId()) {
-            case CONTACT_LOADER:
-                if (cursor != null && cursor.getCount() > 0) {
-                    ContentResolver cr = getContentResolver();
-                    while(cursor.moveToNext())
-                    {
-                        ContactDetails contact= new ContactDetails();
-                        String displayName = cursor.getString(cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME));
-                        String contactId = cursor.getString(cursor.getColumnIndex(ContactsContract.Contacts._ID));
-                        contact.setContactName(displayName);
-
-                        //get birthday
-                        String columns[] = {
-                                ContactsContract.CommonDataKinds.Event.START_DATE,
-                                ContactsContract.CommonDataKinds.Event.TYPE,
-                                ContactsContract.CommonDataKinds.Event.MIMETYPE,
-                        };
-                        String where = Event.TYPE + "=" + Event.TYPE_BIRTHDAY +
-                                " and " + Event.MIMETYPE + " = '" + Event.CONTENT_ITEM_TYPE + "' and "+ ContactsContract.Data.CONTACT_ID + " = " + contactId;
-                        String sortOrder = ContactsContract.Contacts.DISPLAY_NAME;
-                        Cursor birthdayCur = cr.query(ContactsContract.Data.CONTENT_URI, columns, where, null, sortOrder);
-                        if (birthdayCur.getCount() > 0) {
-                            while (birthdayCur.moveToNext()) {
-                                String birthday = birthdayCur.getString(birthdayCur.getColumnIndex(ContactsContract.CommonDataKinds.Event.START_DATE));
-                                if(birthday!=null) {
-                                    contact.setContactBday(birthday);
-                                    Log.d(" LOG_FOR_DEBUG ", birthday + " " + displayName);
-                                }
-                            }
-                            birthdayCur.close();
-                        }
-
-                        //get email ID
-                        Cursor emailCur = cr.query(
-                                ContactsContract.CommonDataKinds.Email.CONTENT_URI, null,
-                                ContactsContract.CommonDataKinds.Email.CONTACT_ID + " = " + contactId,
-                                null, null);
-                        if(emailCur!=null && emailCur.getCount()>0) {
-                            while (emailCur.moveToNext()) {
-                                //to get the contact names
-                                String email = emailCur.getString(emailCur.getColumnIndex(ContactsContract.CommonDataKinds.Email.DATA));
-                                Log.d("LOG_FOR_DEBUG", "Email "+ email);
-                                if (email != null) {
-                                    contact.setContactEmail(email);
-                                }
-                            }
-                            emailCur.close();
-                        }
-
-
-                        //get Phone number
-                            Cursor phoneCursor = cr.query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI, null,
-                                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = "+contactId, null, null);
-                            if (phoneCursor != null && phoneCursor.moveToFirst()) {
-                                String phone = phoneCursor.getString(phoneCursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER));
-                                contact.setContactPhone(phone);
-                                phoneCursor.close();
-                            }
-
-                        contactList.add(contact);
-                    }
-                }
-                else {
-                    Log.d(" LOG_FOR_DEBUG ", "No contacts available");
-                }
-                Log.d(" LOG_FOR_DEBUG ", "ArrayList size "+contactList.size());
-                cursor.close();
-                break;
-
-        }
-    }
-
-    @Override
-    public void onLoaderReset(Loader<Cursor> loader) {
-
-    }
-
     @Override
     public void receiveDetailItems(ContactDetails items) {
         contactList.add(items);
+        adpater.notifyDataSetChanged();
 
     }
 
     @Override
     public void requestDetailItems(DataReceiver receiver) {
-        DataDAO dao = new DataDAO(this);
+        DataDAO dao = new DataDAO(this,Constants.CONTACT_LOADER);
         dao.requestDetailItems(receiver);
     }
 }

@@ -9,9 +9,11 @@ public class DataDAO implements DataAccessor{
 
 
     private Activity mActivity;
+    private int mLoaderId;
 
-    public DataDAO(Activity activity) {
+    public DataDAO(Activity activity,int loaderId) {
         mActivity = activity;
+        mLoaderId = loaderId;
     }
 
     @Override
@@ -29,10 +31,7 @@ public class DataDAO implements DataAccessor{
             }
         });
 
-        // derive an identifier from the LoaderCallbacks class name
-        int callbacksId = callbacks.getClass().getSimpleName().hashCode();
-
         // start the loading sequence
-        mActivity.getLoaderManager().initLoader(1, null, callbacks);
+        mActivity.getLoaderManager().initLoader(mLoaderId, null, callbacks);
     }
 }
